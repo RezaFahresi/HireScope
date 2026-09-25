@@ -56,6 +56,9 @@ export function JobDetailPage() {
     onSuccess: (updated) => {
       queryClient.setQueryData(['job', id], updated)
       queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics-jobs'] })
       toast.success(`Job status updated to ${updated.status}`)
     },
     onError: (err) => toast.error(getApiError(err)),

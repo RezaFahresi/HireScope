@@ -109,7 +109,8 @@ export type WorkflowStatus = 'REVIEW' | 'SHORTLISTED' | 'REJECTED'
 export interface CandidateSkill {
   id: string
   candidate_id: string
-  name: string
+  skill?: string
+  name?: string
   level?: string
   years_of_experience?: number
 }
@@ -122,14 +123,17 @@ export interface CandidateEducation {
   field_of_study: string
   start_date?: string
   end_date?: string
-  is_current: boolean
+  is_current?: boolean
 }
 
 export interface CandidateExperience {
   id: string
   candidate_id: string
   company: string
-  title: string
+  position?: string
+  title?: string
+  location?: string
+  employment_type?: string
   description?: string
   start_date?: string
   end_date?: string

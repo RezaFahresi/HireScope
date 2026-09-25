@@ -662,3 +662,63 @@ npm run dev
 - **Admin**: `admin@hirescope.local` / `AdminSecure2026!`
 - **Recruiter**: `recruiter@hirescope.local` / `RecruiterSecure2026!`
 
+---
+
+## Production Deployment Guide
+
+### 1. Database Deployment & Migration Procedure
+HireScope uses GORM automated schema migrations on startup.
+1. Provision a production PostgreSQL 18 instance (e.g., AWS RDS, Supabase, Neon, or self-hosted).
+2. Create the production database:
+   ```sql
+   CREATE DATABASE hirescope;
+   ```
+3. Set the database connection environment variables (`DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_SSLMODE=require`).
+4. On backend service launch, database migrations execute automatically before the HTTP listener binds to the port.
+
+### 2. Backend Production Environment Variables
+Set the following environment variables in your production container / hosting environment:
+
+| Variable | Description | Example / Recommended Value |
+|---|---|---|
+| `APP_ENV` | Application environment mode | `production` (disables debug logging and dev seeds) |
+| `APP_PORT` | HTTP port for the Gin web service | `8080` |
+| `DB_HOST` | Production PostgreSQL host | `postgres.internal` |
+| `DB_PORT` | Production PostgreSQL port | `5432` |
+| `DB_NAME` | PostgreSQL database name | `hirescope` |
+| `DB_USER` | Database username | `hirescope_user` |
+| `DB_PASSWORD` | Strong database user password | `(generated high-entropy secret)` |
+| `DB_SSLMODE` | SSL connection mode | `require` |
+| `JWT_SECRET` | Cryptographic secret for signing JWTs | `(at least 32-character random string)` |
+| `JWT_EXPIRATION_HOURS` | Token validity duration | `24` |
+| `CV_STORAGE_DIR` | Filesystem path for uploaded CV documents | `/var/data/hirescope/storage` |
+| `CALENDAR_TOKEN_ENCRYPTION_KEY` | 32-byte hex key for AES-256-GCM OAuth token encryption | `(64-char hex string)` |
+| `EMAIL_ENABLED` | Toggle email delivery worker | `true` or `false` |
+| `EMAIL_PROVIDER` | Email provider integration | `resend` |
+| `RESEND_API_KEY` | Resend API key for outbound email | `re_...` |
+| `EMAIL_FROM_ADDRESS` | Verified sending email address | `recruitment@yourdomain.com` |
+| `EMAIL_BASE_URL` | Production frontend domain for email links | `https://hirescope.yourdomain.com` |
+
+### 3. Production CORS Configuration
+- In `backend/cmd/api/main.go`, `corsConfig.AllowOrigins` specifies permitted client origins.
+- In production, configure this to match your production domain:
+  ```go
+  corsConfig.AllowOrigins = []string{"https://hirescope.yourdomain.com"}
+  ```
+
+### 4. Frontend Production Build & API URL Configuration
+1. Configure `frontend/.env.production`:
+   ```env
+   VITE_API_BASE_URL=https://api.hirescope.yourdomain.com/api/v1
+   ```
+2. Build optimized static assets:
+   ```bash
+   cd hirescope/frontend
+   npm run build
+   ```
+3. Deploy the resulting `frontend/dist/` directory to your static web host (Nginx, Caddy, Cloudflare Pages, AWS S3/CloudFront, or Vercel). Ensure the server is configured for Single Page Application (SPA) fallback:
+   ```nginx
+   location / {
+       try_files $uri $uri/ /index.html;
+   }
+   ```

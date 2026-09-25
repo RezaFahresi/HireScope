@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -317,5 +318,55 @@ func TestAuthHandler_LogoutRevocation(t *testing.T) {
 	router.ServeHTTP(w2, req2)
 	if w2.Code != http.StatusUnauthorized {
 		t.Fatalf("Expected 401 after logout revocation, got %d", w2.Code)
+	}
+}
+
+type failingRevokedRepo struct {
+	memoryRevokedRepo
+}
+
+func (r *failingRevokedRepo) Revoke(ctx context.Context, tokenHash string, expiresAt time.Time) error {
+	return errors.New("database connection refused")
+}
+
+func TestAuthHandler_LogoutRevocationFailure(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	jwtSvc, _ := service.NewJWTService("super-secret-jwt-key-for-handler-tests!!", 1)
+	userRepo := newMemoryUserRepo()
+	revokedRepo := &failingRevokedRepo{}
+	authSvc := service.NewAuthService(userRepo, revokedRepo, jwtSvc)
+	authHandler := handler.NewAuthHandler(authSvc)
+
+	user := &model.User{
+		ID:    "u-logout-fail",
+		Name:  "Fail Tester",
+		Email: "faillogout@hirescope.local",
+		Role:  model.RoleRecruiter,
+	}
+	_ = user.SetPassword("SecurePassword123!")
+	_ = userRepo.Create(context.Background(), user)
+	token, _, _ := jwtSvc.GenerateToken(user)
+
+	v1 := router.Group("/api/v1")
+	{
+		authGroup := v1.Group("/auth")
+		{
+			protectedAuth := authGroup.Group("")
+			protectedAuth.Use(middleware.AuthMiddleware(jwtSvc, revokedRepo))
+			{
+				protectedAuth.POST("/logout", authHandler.Logout)
+			}
+		}
+	}
+
+	reqLogout, _ := http.NewRequest(http.MethodPost, "/api/v1/auth/logout", nil)
+	reqLogout.Header.Set("Authorization", "Bearer "+token)
+	wLogout := httptest.NewRecorder()
+	router.ServeHTTP(wLogout, reqLogout)
+
+	if wLogout.Code != http.StatusInternalServerError {
+		t.Fatalf("Expected status 500 when revocation fails, got %d", wLogout.Code)
 	}
 }

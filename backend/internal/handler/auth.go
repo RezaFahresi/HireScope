@@ -74,7 +74,10 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	if rawTokenVal != nil {
 		if rawToken, ok := rawTokenVal.(string); ok && rawToken != "" {
-			_ = h.authService.Logout(c.Request.Context(), rawToken)
+			if err := h.authService.Logout(c.Request.Context(), rawToken); err != nil {
+				RespondError(c, http.StatusInternalServerError, "INTERNAL_ERROR", "failed to revoke token")
+				return
+			}
 		}
 	}
 

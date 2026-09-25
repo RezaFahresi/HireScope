@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod/v4'
 import { useNavigate, Link } from 'react-router-dom'
@@ -28,6 +29,7 @@ function FieldError({ message }: { message?: string }) {
 
 export function CandidateCreatePage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [selectedCV, setSelectedCV] = useState<File | null>(null)
   const [uploadStep, setUploadStep] = useState<string>('')
   const [isProcessingCV, setIsProcessingCV] = useState(false)
@@ -84,6 +86,10 @@ export function CandidateCreatePage() {
       } else {
         toast.success('Candidate created successfully')
       }
+
+      queryClient.invalidateQueries({ queryKey: ['candidates'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics-overview'] })
 
       navigate(`/candidates/${newCandidate.id}`)
     } catch (err) {

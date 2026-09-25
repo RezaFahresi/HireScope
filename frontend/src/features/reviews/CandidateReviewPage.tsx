@@ -248,7 +248,7 @@ export function CandidateReviewPage() {
                   <div key={exp.id} className="relative pl-4 border-l-2 border-primary/20">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-sm font-semibold text-slate-800">{exp.title}</h3>
+                        <h3 className="text-sm font-semibold text-slate-800">{exp.position || exp.title || 'Role'}</h3>
                         <p className="text-sm text-slate-600">{exp.company}</p>
                       </div>
                       <div className="text-xs text-slate-400 text-right">
@@ -303,7 +303,7 @@ export function CandidateReviewPage() {
               <div className="flex flex-wrap gap-1.5">
                 {skills.map((skill) => (
                   <span key={skill.id} className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-xs font-medium text-slate-700 border border-slate-200">
-                    {skill.name}
+                    {skill.skill || skill.name || 'Skill'}
                     {skill.years_of_experience && <span className="ml-1 opacity-60">· {skill.years_of_experience}y</span>}
                   </span>
                 ))}

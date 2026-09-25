@@ -93,6 +93,9 @@ export function JobCreatePage() {
     },
     onSuccess: (job) => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics-jobs'] })
       toast.success('Job created successfully')
       navigate(`/jobs/${job.id}`)
     },

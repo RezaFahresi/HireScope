@@ -140,6 +140,9 @@ export function JobEditPage() {
     onSuccess: (updated) => {
       queryClient.setQueryData(['job', id], updated)
       queryClient.invalidateQueries({ queryKey: ['jobs'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['analytics-jobs'] })
       toast.success('Job updated successfully')
       navigate(`/jobs/${id}`)
     },

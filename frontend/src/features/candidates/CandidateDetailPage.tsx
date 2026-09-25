@@ -96,7 +96,7 @@ export function CandidateDetailPage() {
           <div className="flex flex-wrap gap-2">
             {candidate.skills.map((skill) => (
               <StatusBadge key={skill.id} variant="info">
-                {skill.name}
+                {skill.skill || skill.name || 'Skill'}
                 {skill.level && <span className="ml-1 opacity-70">· {skill.level}</span>}
                 {skill.years_of_experience && (
                   <span className="ml-1 opacity-70">· {skill.years_of_experience}y</span>
@@ -117,7 +117,7 @@ export function CandidateDetailPage() {
               <div key={exp.id} className="border-l-2 border-primary/20 pl-4">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-slate-800">{exp.title}</p>
+                    <p className="text-sm font-semibold text-slate-800">{exp.position || exp.title || 'Role'}</p>
                     <p className="text-sm text-slate-600">{exp.company}</p>
                   </div>
                   <div className="text-xs text-slate-400 text-right">
