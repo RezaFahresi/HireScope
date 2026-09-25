@@ -550,21 +550,49 @@ Candidates associated with a job vacancy move through distinct workflow states o
 
 ### 6. Recruiter Audit Trail
 All critical recruiter actions generate an immutable audit log entry in PostgreSQL (`audit_logs` table):
-- Actions: `CANDIDATE_STATUS_CHANGED`, `CANDIDATE_NOTE_CREATED`, `CANDIDATE_NOTE_UPDATED`, `CANDIDATE_NOTE_DELETED`.
+- Actions: `CANDIDATE_STATUS_CHANGED`, `CANDIDATE_NOTE_CREATED`, `CANDIDATE_NOTE_UPDATED`, `CANDIDATE_NOTE_DELETED`, `INTERVIEW_SCHEDULED`, `INTERVIEW_RESCHEDULED`, `INTERVIEW_CANCELLED`, `INTERVIEW_COMPLETED`, `CALENDAR_SYNCED`, `REPORT_EXPORTED`.
 - Attributes: `id`, `action`, `actor_id`, `job_id`, `candidate_id`, `metadata` (JSON), `created_at`.
 - **Privacy Assurance**: Audit log metadata records only structural identifiers (status transitions, note IDs, affected entities). No PII, passwords, JWT tokens, note contents, or raw CV text are recorded in audit logs.
 
-### 7. Step 8 API Reference
+---
 
-| Method | Endpoint | Description | Auth |
-|---|---|---|---|
-| `GET` | `/api/v1/jobs/:id/candidates` | List job candidates with review status, search & screening summary | Bearer Token |
-| `GET` | `/api/v1/jobs/:id/candidates/:candidateId/review` | Complete aggregated recruiter review context snapshot | Bearer Token |
-| `PATCH` | `/api/v1/jobs/:id/candidates/:candidateId/status` | Update candidate workflow status (`REVIEW`, `SHORTLISTED`, `REJECTED`) | Bearer Token |
-| `POST` | `/api/v1/jobs/:id/candidates/:candidateId/notes` | Add job-specific recruiter review note (1-5000 chars) | Bearer Token |
-| `GET` | `/api/v1/jobs/:id/candidates/:candidateId/notes` | List recruiter notes for candidate on job (paginated, newest first) | Bearer Token |
-| `PUT` | `/api/v1/jobs/:id/candidates/:candidateId/notes/:noteId` | Update recruiter note (Author or ADMIN only) | Bearer Token |
-| `DELETE` | `/api/v1/jobs/:id/candidates/:candidateId/notes/:noteId` | Delete recruiter note (Author or ADMIN only) | Bearer Token |
+## Capabilities & Feature Modules (Steps 1–14)
+
+### 1. Core Platform & Security
+- **Authentication**: JWT token-based auth with server-side revocation on logout (`revoked_tokens`).
+- **Security Headers**: Standard headers injected on every response (`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-XSS-Protection: 1; mode=block`, `Permissions-Policy`).
+- **Rate Limiting**: In-memory sliding-window IP rate limiter on sensitive endpoints (e.g. `POST /api/v1/auth/login` capped to 20 req/min).
+- **Strict Data Validation & SQL Injection Prevention**: Parameterized queries via GORM, strict field allowlists for sorting/ordering, bounded pagination (limit capped at 100), and CSV formula injection neutralization (`=`, `+`, `-`, `@`, `\t`, `\r` escaped).
+- **Zero AI / Deterministic Guarantee**: Pure deterministic pattern matching for CV extraction, scoring, and requirement screening. No external AI APIs, LLMs, or non-deterministic algorithms.
+
+### 2. Job Vacancies & Requirements (Step 3)
+- Job lifecycle state machine: `DRAFT` ➔ `OPEN` ➔ `CLOSED` ➔ `ARCHIVED`.
+- Configurable deterministic requirements: Experience years, degrees, required skills, and certifications with weights and must-have flags.
+
+### 3. Candidate Profile & CV Extraction (Steps 4, 5, 10)
+- Support for `PDF`, `DOCX`, and pasted `TEXT` formats.
+- Magic byte validation for uploads (max 20MB), filename sanitization, and isolated storage.
+- Deterministic extraction for education, work experience, and tech skills.
+
+### 4. Deterministic Screening & Recruiter Review (Steps 6, 7, 8, 9)
+- Deterministic match scoring against job requirements with clear evidence snippets.
+- Recruiter workflow stages: `APPLIED` ➔ `SCREENING` ➔ `REVIEW` ➔ `INTERVIEW` ➔ `OFFER` ➔ `HIRED` / `REJECTED`.
+- Recruiter notes with rich history and audit trail.
+
+### 5. Recruitment Operations Dashboard (Step 11)
+- Real-time pipeline KPI metrics, recent candidates, active jobs, and activity timeline.
+- TanStack Query auto-refresh with manual sync and stale-while-revalidate caching.
+
+### 6. Interview Management & Operations (Step 12A, 12B-1, 12B-2, 12B-3)
+- **Lifecycle Management**: Schedule, reschedule, cancel, and complete interviews across stages (`PHONE_SCREEN`, `HR_INTERVIEW`, `TECHNICAL_INTERVIEW`, `MANAGER_INTERVIEW`, `FINAL_INTERVIEW`).
+- **Calendar & Agenda View**: Month, week, day, and agenda views with stage and status filters.
+- **ICS Calendar Export**: Standard RFC 5545 `.ics` export with candidate and interviewer details.
+- **Email Invitations & Reminders (Step 12B-2)**: Modular email notification service with Resend integration and audit log delivery records.
+- **External Calendar Sync (Step 12B-3)**: Two-way sync state for Google Calendar and Microsoft Outlook 365, with encrypted OAuth token storage (AES-GCM-256).
+
+### 7. Recruitment Analytics & Reporting (Step 13)
+- Comprehensive analytics overview: Time-to-hire, pipeline conversion rates, stage drop-offs, recruiter productivity, and department breakdown.
+- Export to sanitized CSV with audit logging.
 
 ---
 
@@ -588,35 +616,49 @@ All critical recruiter actions generate an immutable audit log entry in PostgreS
        └──────────┘   └──────────┘
 ```
 
-- `DRAFT`: Vacancy in preparation. Allowed transitions: `OPEN`, `ARCHIVED`.
-- `OPEN`: Actively accepting candidates. Allowed transitions: `CLOSED`, `ARCHIVED`.
-- `CLOSED`: Recruitment paused/closed. Allowed transitions: `OPEN`, `ARCHIVED`.
-- `ARCHIVED`: Historical record. Terminal state (no further transitions permitted).
-
 ---
 
 ## How to Run Tests & Database Test Safety
 
-### Database Test Safety
-All unit and integration tests run against isolated in-memory repositories or mock engines. Tests **never touch, truncate, drop, or alter** the development or production PostgreSQL database.
+### Database Test Safety Guarantee
+All unit and integration tests run strictly against in-memory mock repositories and state engines. Tests **never connect to, drop, truncate, or alter** the live PostgreSQL database.
 
-Run all tests:
-```bash
+```powershell
+# Run all backend tests (using isolated temp dir on Windows)
 cd hirescope/backend
-go test -v ./...
+$env:GOTMPDIR = "C:\Users\fahre\hirescope\backend\tmp"
+go test -v -count=1 ./...
+
+# Run static analysis
+go vet ./...
 ```
 
-Run static analysis:
-```bash
-cd hirescope/backend
-go vet ./...
+### Frontend Lint & Build
+```powershell
+cd hirescope/frontend
+cmd.exe /c "npm run lint"
+cmd.exe /c "npm run build"
 ```
 
 ---
 
-## How to Run the API
+## How to Run the Application
 
-```bash
+### 1. Backend Server
+```powershell
 cd hirescope/backend
 go run cmd/api/main.go
+# Server listens on http://localhost:8080
 ```
+
+### 2. Frontend Application
+```powershell
+cd hirescope/frontend
+npm run dev
+# Frontend runs on http://localhost:5173
+```
+
+### Default Development Credentials
+- **Admin**: `admin@hirescope.local` / `AdminSecure2026!`
+- **Recruiter**: `recruiter@hirescope.local` / `RecruiterSecure2026!`
+
